@@ -6,3 +6,4 @@
 /.idea
 /.vscode
 /storage/*.key
+node_modules
