@@ -1,0 +1,64 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    name: Domain Unit Tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.2', '8.3']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+
+      - name: Install PHPUnit
+        run: composer require --dev phpunit/phpunit:^11.0 --no-interaction --no-progress
+
+      - name: Run Domain Unit Tests
+        run: php vendor/bin/phpunit tests/Unit/ --no-configuration --bootstrap vendor/autoload.php
+
+  integration-tests:
+    name: Integration Tests (Laravel + MySQL)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: taskapi_ddd_test
+          MYSQL_USER: taskapi
+          MYSQL_PASSWORD: secret
+          MYSQL_ROOT_PASSWORD: rootsecret
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo, pdo_mysql
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: cp .env.example .env && php artisan key:generate
+      - run: php artisan migrate --force
+        env:
+          DB_HOST: 127.0.0.1
+          DB_DATABASE: taskapi_ddd_test
+          DB_USERNAME: taskapi
+          DB_PASSWORD: secret
+      - run: php artisan test
+        env:
+          DB_HOST: 127.0.0.1
+          DB_DATABASE: taskapi_ddd_test
+          DB_USERNAME: taskapi
+          DB_PASSWORD: secret
